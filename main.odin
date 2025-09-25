@@ -1,10 +1,8 @@
 package main
 
 import "core:time"
-import "core:math"
 import "core:fmt"
 import "core:os"
-//import "core:mem"
 import "vendor:glfw"
 import gl "vendor:OpenGL"
 
@@ -39,12 +37,15 @@ main :: proc() {
 
   gl.load_up_to(GL_MAJOR_VERSION, GL_MINOR_VERSION, glfw.gl_set_proc_address)
 
-  sq := math.sqrt(f32(3)) * 0.5
-  vertices : [15]f32 = {
-    // Coordinates ; Colors
-     1.0,   0,       1, 0, 0,
-    -0.5,  sq,       0, 1, 0,
-    -0.5, -sq,       0, 0, 1,
+  vertices : [12]f32 = {
+    // Coordinates
+    -1, 1,
+    1, 0,
+    -1, 0,
+
+    -1, 1,
+    1, 1,
+    1, 0,
   }
 
   gl.GenVertexArrays(1, &global_vao)
@@ -62,20 +63,6 @@ main :: proc() {
     gl.STATIC_DRAW,
   )
 
-  // Position and color attributes
-  gl.VertexAttribPointer(
-    0,  // index
-    2,  // size
-    gl.FLOAT, // type
-    gl.FALSE, // normalized
-    5 * size_of(f32), // stride
-    0, // offset
-  )
-  gl.VertexAttribPointer(1, 3, gl.FLOAT, gl.FALSE, 5 * size_of(f32), 2 * size_of(f32))
-
-  gl.EnableVertexAttribArray(0)
-  gl.EnableVertexAttribArray(1)
-
   program_ok : bool
   vertex_shader := string(#load("vertex.glsl"))
   fragment_shader := string(#load("fragment.glsl"))
@@ -84,8 +71,23 @@ main :: proc() {
     fmt.println("ERROR: Failed to load and compile shaders.")
     os.exit(1)
   }
-
   gl.UseProgram(global_shader)
+
+  // Position and color attributes
+  gl.VertexAttribPointer(
+    0,  // index
+    2,  // size
+    gl.FLOAT, // type
+    gl.FALSE, // normalized
+    2 * size_of(f32), // stride
+    0, // offset
+  )
+  gl.EnableVertexAttribArray(0)
+
+  gl.Enable(gl.BLEND)
+  gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+
+  gl.Enable(gl.DEPTH_TEST)
 
   time.stopwatch_start(&watch)
 
@@ -99,28 +101,40 @@ main :: proc() {
 }
 
 render_screen :: proc(window: glfw.WindowHandle, vao: VAO) {
-  raw_duration := time.stopwatch_duration(watch)
-  secs         := f32(time.duration_seconds(raw_duration))
-  theta        := -secs
-  gl.Uniform1f(gl.GetUniformLocation(global_shader, "theta"), theta)
-
   gl.BindVertexArray(vao)
   defer gl.BindVertexArray(0)
 
   // Draw commands
   gl.ClearColor(0.1, 0.1, 0.1, 1)
-  gl.Clear(gl.COLOR_BUFFER_BIT)
+  gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
+  gl.Uniform2f(gl.GetUniformLocation(global_shader, "scale"), 0.5, 0.5)
+  gl.Uniform4f(gl.GetUniformLocation(global_shader, "color"), 1, 1, 1, 1)
+  gl.Uniform2f(gl.GetUniformLocation(global_shader, "offset"), 0, -0.25)
+  gl.Uniform1f(gl.GetUniformLocation(global_shader, "zIndex"), 0.1)
   gl.DrawArrays(
     gl.TRIANGLES, // Draw triangles
     0,  // Begin drawing at index 0
-    3,   // Use 3 indices
+    6,   // Use 3 indices
   )
 
-  gl.Uniform1f(gl.GetUniformLocation(global_shader, "theta"), theta + 3)
+  gl.Uniform2f(gl.GetUniformLocation(global_shader, "scale"), 1, 1)
+  gl.Uniform4f(gl.GetUniformLocation(global_shader, "color"), 0.5, 0, 0, 1)
+  gl.Uniform2f(gl.GetUniformLocation(global_shader, "offset"), 0, 0)
+  gl.Uniform1f(gl.GetUniformLocation(global_shader, "zIndex"), 0)
   gl.DrawArrays(
     gl.TRIANGLES, // Draw triangles
     0,  // Begin drawing at index 0
-    3,   // Use 3 indices
+    6,   // Use 3 indices
+  )
+
+  gl.Uniform2f(gl.GetUniformLocation(global_shader, "scale"), 0.8, 0.8)
+  gl.Uniform4f(gl.GetUniformLocation(global_shader, "color"), 0.5, 0.5, 0, 1)
+  gl.Uniform2f(gl.GetUniformLocation(global_shader, "offset"), -0.5, 0.5)
+  gl.Uniform1f(gl.GetUniformLocation(global_shader, "zIndex"), -.1)
+  gl.DrawArrays(
+    gl.TRIANGLES, // Draw triangles
+    0,  // Begin drawing at index 0
+    6,   // Use 3 indices
   )
 }

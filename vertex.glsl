@@ -1,18 +1,15 @@
 #version 330 core
 layout (location = 0) in vec2 aPos;
-layout (location = 1) in vec3 aColor;
 
-out vec3 ourColor;
+uniform vec4 color = vec4(1, 1, 1, 1);
+uniform vec2 scale = vec2(1, 1);
+uniform vec2 offset = vec2(0, 0);
+uniform float zIndex = 0;
 
-uniform float theta;
+out vec4 vColor;
 
 void main() {
-
-    mat2 rotation_mat = mat2(
-        cos(theta), sin(-theta),
-        sin(theta), cos( theta)
-    );
-
-    gl_Position = vec4(rotation_mat * aPos, 0, 1);
-    ourColor    = aColor;
+    vec2 scaled = aPos * scale + offset;
+    gl_Position = vec4(scaled, zIndex, 1.0);
+    vColor = color;
 }
