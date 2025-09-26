@@ -3,6 +3,7 @@ package main
 import "core:time"
 import "core:fmt"
 import "core:os"
+import glm "core:math/linalg/glsl"
 import "vendor:glfw"
 import gl "vendor:OpenGL"
 
@@ -16,6 +17,7 @@ ShaderProgram :: u32
 global_vao    : VAO
 global_shader : ShaderProgram
 watch         : time.Stopwatch
+
 
 main :: proc() {
   if glfw.Init() == false {
@@ -108,30 +110,39 @@ render_screen :: proc(window: glfw.WindowHandle, vao: VAO) {
   gl.ClearColor(0.1, 0.1, 0.1, 1)
   gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-  gl.Uniform2f(gl.GetUniformLocation(global_shader, "scale"), 0.5, 0.5)
+  screen_width :f32 = 1280.0
+  screen_height :f32 = 720.0
+  
+  projection := glm.mat4Ortho3d(0, screen_width, 0, screen_height, -1, 1)
+  view := glm.mat4(1.0) * glm.mat4Translate({ 640, 360, 0 })
+
+  model := glm.mat4(1.0) * glm.mat4Translate({ -640, 0, 0 }) * glm.mat4Scale({ 100, 100, 1 })
+  u_transform := projection * view * model
+  gl.UniformMatrix4fv(gl.GetUniformLocation(global_shader, "projection"), 1, false, &u_transform[0,0])
   gl.Uniform4f(gl.GetUniformLocation(global_shader, "color"), 1, 1, 1, 1)
-  gl.Uniform2f(gl.GetUniformLocation(global_shader, "offset"), 0, -0.25)
-  gl.Uniform1f(gl.GetUniformLocation(global_shader, "zIndex"), 0.1)
+  gl.Uniform1f(gl.GetUniformLocation(global_shader, "zIndex"), 1)
   gl.DrawArrays(
     gl.TRIANGLES, // Draw triangles
     0,  // Begin drawing at index 0
     6,   // Use 3 indices
   )
 
-  gl.Uniform2f(gl.GetUniformLocation(global_shader, "scale"), 1, 1)
-  gl.Uniform4f(gl.GetUniformLocation(global_shader, "color"), 0.5, 0, 0, 1)
-  gl.Uniform2f(gl.GetUniformLocation(global_shader, "offset"), 0, 0)
-  gl.Uniform1f(gl.GetUniformLocation(global_shader, "zIndex"), 0)
+  model = glm.mat4(1.0) * glm.mat4Translate({ 0, 100, 0 }) * glm.mat4Scale({ 50, 50, 1 })
+  u_transform = projection * view * model
+  gl.UniformMatrix4fv(gl.GetUniformLocation(global_shader, "projection"), 1, false, &u_transform[0,0])
+  gl.Uniform4f(gl.GetUniformLocation(global_shader, "color"), 1, 0, 0, 1)
+  gl.Uniform1f(gl.GetUniformLocation(global_shader, "zIndex"), 1)
   gl.DrawArrays(
     gl.TRIANGLES, // Draw triangles
     0,  // Begin drawing at index 0
     6,   // Use 3 indices
   )
 
-  gl.Uniform2f(gl.GetUniformLocation(global_shader, "scale"), 0.8, 0.8)
-  gl.Uniform4f(gl.GetUniformLocation(global_shader, "color"), 0.5, 0.5, 0, 1)
-  gl.Uniform2f(gl.GetUniformLocation(global_shader, "offset"), -0.5, 0.5)
-  gl.Uniform1f(gl.GetUniformLocation(global_shader, "zIndex"), -.1)
+  model = glm.mat4(1.0) * glm.mat4Translate({ 100, -100, 0 }) * glm.mat4Scale({ 50, 50, 1 })
+  u_transform = projection * view * model
+  gl.UniformMatrix4fv(gl.GetUniformLocation(global_shader, "projection"), 1, false, &u_transform[0,0])
+  gl.Uniform4f(gl.GetUniformLocation(global_shader, "color"), 1, 0, 0.5, 1)
+  gl.Uniform1f(gl.GetUniformLocation(global_shader, "zIndex"), 1)
   gl.DrawArrays(
     gl.TRIANGLES, // Draw triangles
     0,  // Begin drawing at index 0
