@@ -1,5 +1,6 @@
 package main
 
+import "core:time"
 // import "core:time"
 import "core:fmt"
 import "core:os"
@@ -99,16 +100,17 @@ main :: proc() {
   gl.Enable(gl.DEPTH_TEST)
 
   // start_tick := time.tick_now()
+  last_tick := time.tick_now()
 
   for glfw.WindowShouldClose(window) == false {
-    // duration := time.tick_since(start_tick)
-    // dt := f32(time.duration_seconds(duration))
+    current_tick := time.tick_now()
+    delta_tick := time.tick_diff(last_tick, current_tick)
+    delta_time := f32(time.duration_seconds(delta_tick))
+    last_tick = current_tick
 
     glfw.PollEvents()
 
-    
-
-    render_screen(window, global_vao)
+    render_screen(window, global_vao, delta_time)
 
     glfw.SwapBuffers(window)
   }
@@ -130,18 +132,27 @@ key_callback :: proc "c" (window: glfw.WindowHandle, key, scancode, action, mods
 camera_x := screen_width / 2
 camera_y := screen_height / 2
 
+target_camera_x := screen_width / 2
+target_camera_y := screen_height / 2
+
 player_x :f32 = 0
 player_y :f32 = 0
-render_screen :: proc(window: glfw.WindowHandle, vao: VAO) {
+render_screen :: proc(window: glfw.WindowHandle, vao: VAO, delta_time: f32) {
   gl.BindVertexArray(vao)
   defer gl.BindVertexArray(0)
 
   // Draw commands
   gl.ClearColor(0.1, 0.1, 0.1, 1)
   gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+
+  target_camera_x = player_x - (screen_width / 2)
+  target_camera_y = player_y - (screen_height / 2)
+
+  camera_x += (target_camera_x - camera_x) * delta_time
+  camera_y += (target_camera_y - camera_y) * delta_time
   
   projection := glm.mat4Ortho3d(0, screen_width, 0, screen_height, -1, 1)
-  view := glm.mat4Translate({camera_x, camera_y, 0})
+  view := glm.mat4Translate({-camera_x, -camera_y, 0})
 
   model := glm.mat4Translate({ player_x, player_y, 0 }) * glm.mat4Scale({ 100, screen_height / 2, 1 })
   u_transform := projection * view * model
