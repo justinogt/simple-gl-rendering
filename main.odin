@@ -1,6 +1,6 @@
 package main
 
-import "core:time"
+// import "core:time"
 import "core:fmt"
 import "core:os"
 import glm "core:math/linalg/glsl"
@@ -16,8 +16,9 @@ ShaderProgram :: u32
 
 global_vao    : VAO
 global_shader : ShaderProgram
-watch         : time.Stopwatch
 
+screen_width :f32 = 1280.0
+screen_height :f32 = 720.0
 
 main :: proc() {
   if glfw.Init() == false {
@@ -29,7 +30,7 @@ main :: proc() {
   glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, GL_MINOR_VERSION)
   glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
 
-  window := glfw.CreateWindow(1280, 720, "Odin + GLFW", nil, nil)
+  window := glfw.CreateWindow(i32(screen_width), i32(screen_height), "Odin + GLFW", nil, nil)
   if window == nil {
     panic("Failed to create window")
   }
@@ -37,17 +38,23 @@ main :: proc() {
 
   glfw.MakeContextCurrent(window)
 
+  // Enable vsync
+	// https://www.glfw.org/docs/3.3/group__context.html#ga6d4e0cdf151b5e579bd67f13202994ed
+  glfw.SwapInterval(1)
+
+  glfw.SetKeyCallback(window, key_callback)
+
   gl.load_up_to(GL_MAJOR_VERSION, GL_MINOR_VERSION, glfw.gl_set_proc_address)
 
   vertices : [12]f32 = {
     // Coordinates
     -1, 1,
-    1, 0,
+    0, 0,
     -1, 0,
 
     -1, 1,
-    1, 1,
-    1, 0,
+    0, 1,
+    0, 0,
   }
 
   gl.GenVertexArrays(1, &global_vao)
@@ -91,10 +98,15 @@ main :: proc() {
 
   gl.Enable(gl.DEPTH_TEST)
 
-  time.stopwatch_start(&watch)
+  // start_tick := time.tick_now()
 
   for glfw.WindowShouldClose(window) == false {
+    // duration := time.tick_since(start_tick)
+    // dt := f32(time.duration_seconds(duration))
+
     glfw.PollEvents()
+
+    
 
     render_screen(window, global_vao)
 
@@ -102,6 +114,24 @@ main :: proc() {
   }
 }
 
+key_callback :: proc "c" (window: glfw.WindowHandle, key, scancode, action, mods: i32) {
+	// Exit program on escape pressed
+	if key == glfw.KEY_LEFT {
+    player_x -= 100
+	} else if key == glfw.KEY_RIGHT {
+    player_x += 100
+  } else if key == glfw.KEY_UP {
+    player_y += 100
+  } else if key == glfw.KEY_DOWN {
+    player_y -= 100
+  }
+}
+
+camera_x := screen_width / 2
+camera_y := screen_height / 2
+
+player_x :f32 = 0
+player_y :f32 = 0
 render_screen :: proc(window: glfw.WindowHandle, vao: VAO) {
   gl.BindVertexArray(vao)
   defer gl.BindVertexArray(0)
@@ -109,14 +139,11 @@ render_screen :: proc(window: glfw.WindowHandle, vao: VAO) {
   // Draw commands
   gl.ClearColor(0.1, 0.1, 0.1, 1)
   gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-
-  screen_width :f32 = 1280.0
-  screen_height :f32 = 720.0
   
   projection := glm.mat4Ortho3d(0, screen_width, 0, screen_height, -1, 1)
-  view := glm.mat4(1.0) * glm.mat4Translate({ 640, 360, 0 })
+  view := glm.mat4Translate({camera_x, camera_y, 0})
 
-  model := glm.mat4(1.0) * glm.mat4Translate({ -640, 0, 0 }) * glm.mat4Scale({ 100, 100, 1 })
+  model := glm.mat4Translate({ player_x, player_y, 0 }) * glm.mat4Scale({ 100, screen_height / 2, 1 })
   u_transform := projection * view * model
   gl.UniformMatrix4fv(gl.GetUniformLocation(global_shader, "projection"), 1, false, &u_transform[0,0])
   gl.Uniform4f(gl.GetUniformLocation(global_shader, "color"), 1, 1, 1, 1)
@@ -127,10 +154,10 @@ render_screen :: proc(window: glfw.WindowHandle, vao: VAO) {
     6,   // Use 3 indices
   )
 
-  model = glm.mat4(1.0) * glm.mat4Translate({ 0, 100, 0 }) * glm.mat4Scale({ 50, 50, 1 })
+  model = glm.mat4Translate({ screen_width / 2, -screen_height / 2, 0 }) * glm.mat4Scale({ screen_width, 50, 1 })
   u_transform = projection * view * model
   gl.UniformMatrix4fv(gl.GetUniformLocation(global_shader, "projection"), 1, false, &u_transform[0,0])
-  gl.Uniform4f(gl.GetUniformLocation(global_shader, "color"), 1, 0, 0, 1)
+  gl.Uniform4f(gl.GetUniformLocation(global_shader, "color"), 0, 0, 0, 1)
   gl.Uniform1f(gl.GetUniformLocation(global_shader, "zIndex"), 1)
   gl.DrawArrays(
     gl.TRIANGLES, // Draw triangles
@@ -138,14 +165,4 @@ render_screen :: proc(window: glfw.WindowHandle, vao: VAO) {
     6,   // Use 3 indices
   )
 
-  model = glm.mat4(1.0) * glm.mat4Translate({ 100, -100, 0 }) * glm.mat4Scale({ 50, 50, 1 })
-  u_transform = projection * view * model
-  gl.UniformMatrix4fv(gl.GetUniformLocation(global_shader, "projection"), 1, false, &u_transform[0,0])
-  gl.Uniform4f(gl.GetUniformLocation(global_shader, "color"), 1, 0, 0.5, 1)
-  gl.Uniform1f(gl.GetUniformLocation(global_shader, "zIndex"), 1)
-  gl.DrawArrays(
-    gl.TRIANGLES, // Draw triangles
-    0,  // Begin drawing at index 0
-    6,   // Use 3 indices
-  )
 }
