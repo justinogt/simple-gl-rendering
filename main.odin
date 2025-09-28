@@ -21,6 +21,92 @@ global_shader : ShaderProgram
 screen_width :f32 = 1280.0
 screen_height :f32 = 720.0
 
+Transform :: struct {
+  position: [3]f32,
+  size:    [3]f32,
+}
+
+Camera :: struct {
+  position: [3]f32,
+  zoom    : f32,
+}
+
+FollowCamera :: struct {
+  speed :f32,
+  offset: [3]f32,
+}
+
+Rect :: struct {
+  transform: Transform,
+  pivot    : [3]f32,
+  color    : [4]f32,
+}
+
+get_camera_matrix :: proc(camera: Camera) -> glm.mat4 {
+  return glm.mat4Translate(-camera.position) * glm.mat4Scale({ camera.zoom, camera.zoom, 1 })
+}
+
+render_rect :: proc(rect: Rect, view_matrix: glm.mat4) {
+  transform := rect.transform
+  model := glm.mat4Translate(transform.position + transform.size * rect.pivot) *
+    glm.mat4Scale(transform.size)
+  u_transform := projection * view_matrix * model
+  gl.UniformMatrix4fv(gl.GetUniformLocation(global_shader, "projection"), 1, false, &u_transform[0,0])
+  gl.Uniform4f(gl.GetUniformLocation(global_shader, "color"), rect.color.r, rect.color.g, rect.color.b, rect.color.a)
+  gl.DrawArrays(
+    gl.TRIANGLES, // Draw triangles
+    0,  // Begin drawing at index 0
+    6,   // Use 3 indices
+  )
+}
+
+update_follow_camera :: proc(camera: ^Camera, follow_camera: FollowCamera, target_position: [3]f32, delta_time: f32) {
+  desired_position := target_position - follow_camera.offset
+  camera.position += (desired_position - camera.position) * delta_time * follow_camera.speed
+}
+
+projection := glm.mat4Ortho3d(0, screen_width, 0, screen_height, -100, 100)
+main_camera := Camera {
+  position = { screen_width / 2, 55, 1 },
+  zoom     = 1,
+}
+main_follow_camera := FollowCamera {
+  speed = 2,
+  offset = { screen_width / 2, 100, 1 },
+}
+
+player := Rect {
+  transform = {
+    position = { screen_width / 2, 55, 1 },
+    size     = { 50, 100, 0 },
+  },
+  color = { 1, 1, 1, 1 },
+}
+
+simple_level := [3]Rect {
+  {
+    transform = {
+      position = { 0, 0, 0 },
+      size     = { screen_width, 50, 0 },
+    },
+    color = { 0.2, 0.1, 0.1, 1 },
+  },
+  {
+    transform = {
+      position = { 10, 0, 0 },
+      size     = { 50, screen_height, 0 },
+    },
+    color = { 0.2, 0.1, 0.1, 1 },
+  },
+  {
+    transform = {
+      position = { screen_width - 50 - 10, 0, 0 },
+      size     = { 50, screen_height, 0 },
+    },
+    color = { 0.2, 0.1, 0.1, 1 },
+  },
+}
+
 main :: proc() {
   if glfw.Init() == false {
     panic("Failed to init GLFW")
@@ -119,27 +205,15 @@ main :: proc() {
 key_callback :: proc "c" (window: glfw.WindowHandle, key, scancode, action, mods: i32) {
 	// Exit program on escape pressed
 	if key == glfw.KEY_LEFT {
-    player_x -= 100
+    player.transform.position.x -= 100
 	} else if key == glfw.KEY_RIGHT {
-    player_x += 100
+    player.transform.position.x += 100
   } else if key == glfw.KEY_UP {
-    player_y += 100
+    player.transform.position.y += 100
   } else if key == glfw.KEY_DOWN {
-    player_y -= 100
+    player.transform.position.y -= 100
   }
 }
-
-camera_x :f32 = 0
-camera_y :f32 = 0
-
-target_camera_x :f32 = 0
-target_camera_y :f32 = 0
-
-player_x :f32 = 0
-player_y :f32 = 0
-
-world_origin_x :f32 = 0
-world_origin_y :f32 = screen_height
 
 render_screen :: proc(window: glfw.WindowHandle, vao: VAO, delta_time: f32) {
   gl.BindVertexArray(vao)
@@ -149,64 +223,13 @@ render_screen :: proc(window: glfw.WindowHandle, vao: VAO, delta_time: f32) {
   gl.ClearColor(0.1, 0.1, 0.1, 1)
   gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-  // target_camera_x = player_x - (0)
-  // target_camera_y = player_y - (0)
+  update_follow_camera(&main_camera, main_follow_camera, player.transform.position, delta_time)
 
-  // camera_x += (target_camera_x - camera_x) * delta_time
-  // camera_y += (target_camera_y - camera_y) * delta_time
-  
-  projection := glm.mat4Ortho3d(0, screen_width, 0, screen_height, -100, 100)
-  view := glm.mat4Translate({ 0, 0, 0})
+  view := get_camera_matrix(main_camera)
 
-  pivot := [3]f32{0, 0, 0}
-  size := [3]f32{50, 100, 0}
-  pos := [3]f32{ screen_width / 2, 55, 1}
-  model := glm.mat4Translate(pos + size * pivot) * glm.mat4Scale(size)
-  u_transform := projection * view * model
-  gl.UniformMatrix4fv(gl.GetUniformLocation(global_shader, "projection"), 1, false, &u_transform[0,0])
-  gl.Uniform4f(gl.GetUniformLocation(global_shader, "color"), 1, 1, 1, 1)
-  gl.DrawArrays(
-    gl.TRIANGLES, // Draw triangles
-    0,  // Begin drawing at index 0
-    6,   // Use 3 indices
-  )
+  render_rect(player, view)
 
-  pivot = [3]f32{0, 0, 0}
-  size = [3]f32{screen_width, 50, 0}
-  pos = [3]f32{ 0, 0, 0}
-  model = glm.mat4Translate(pos + size * pivot) * glm.mat4Scale(size)
-  u_transform = projection * view * model
-  gl.UniformMatrix4fv(gl.GetUniformLocation(global_shader, "projection"), 1, false, &u_transform[0,0])
-  gl.Uniform4f(gl.GetUniformLocation(global_shader, "color"), 0.2, 0.1, 0.1, 1)
-  gl.DrawArrays(
-    gl.TRIANGLES, // Draw triangles
-    0,  // Begin drawing at index 0
-    6,   // Use 3 indices
-  )
-
-  pivot = [3]f32{0, 0, 0}
-  size = [3]f32{50, screen_height, 0}
-  pos = [3]f32{ 10, 0, 0}
-  model = glm.mat4Translate(pos + size * pivot) * glm.mat4Scale(size)
-  u_transform = projection * view * model
-  gl.UniformMatrix4fv(gl.GetUniformLocation(global_shader, "projection"), 1, false, &u_transform[0,0])
-  gl.Uniform4f(gl.GetUniformLocation(global_shader, "color"), 0.2, 0.1, 0.1, 1)
-  gl.DrawArrays(
-    gl.TRIANGLES, // Draw triangles
-    0,  // Begin drawing at index 0
-    6,   // Use 3 indices
-  )
-
-  pivot = [3]f32{0, 0, 0}
-  size = [3]f32{50, screen_height, 0}
-  pos = [3]f32{ screen_width - 50 -10, 0, 0}
-  model = glm.mat4Translate(pos + size * pivot) * glm.mat4Scale(size)
-  u_transform = projection * view * model
-  gl.UniformMatrix4fv(gl.GetUniformLocation(global_shader, "projection"), 1, false, &u_transform[0,0])
-  gl.Uniform4f(gl.GetUniformLocation(global_shader, "color"), 0.2, 0.1, 0.1, 1)
-  gl.DrawArrays(
-    gl.TRIANGLES, // Draw triangles
-    0,  // Begin drawing at index 0
-    6,   // Use 3 indices
-  )
+  for rect in simple_level {
+    render_rect(rect, view)
+  }
 }
