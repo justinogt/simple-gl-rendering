@@ -48,7 +48,7 @@ get_camera_matrix :: proc(camera: Camera) -> glm.mat4 {
 
 render_rect :: proc(rect: Rect, view_matrix: glm.mat4) {
   transform := rect.transform
-  model := glm.mat4Translate(transform.position + transform.size * rect.pivot) *
+  model := glm.mat4Translate(transform.position + transform.size * -rect.pivot) *
     glm.mat4Scale(transform.size)
   u_transform := projection * view_matrix * model
   gl.UniformMatrix4fv(gl.GetUniformLocation(global_shader, "projection"), 1, false, &u_transform[0,0])
@@ -63,6 +63,26 @@ render_rect :: proc(rect: Rect, view_matrix: glm.mat4) {
 update_follow_camera :: proc(camera: ^Camera, follow_camera: FollowCamera, target_position: [3]f32, delta_time: f32) {
   desired_position := target_position - follow_camera.offset
   camera.position += (desired_position - camera.position) * delta_time * follow_camera.speed
+}
+
+get_mouse_in_view :: proc(window: glfw.WindowHandle, view_matrix: glm.mat4) -> (x: f32, y: f32) {
+  raw_mouse_x, raw_mouse_y: f64 = glfw.GetCursorPos(window)
+  mouse_x := f32(raw_mouse_x)
+  mouse_y := f32(raw_mouse_y)
+
+  ndc_x := (2.0 * mouse_x / screen_width) - 1.0
+  ndc_y := 1.0 - (2.0 * mouse_y / screen_height)
+  ndc_z :f32 = 0.0
+
+  clip := glm.vec4{ ndc_x, ndc_y, ndc_z, 1.0 }
+
+  inv_proj := glm.inverse(projection * view_matrix)
+  world := inv_proj * clip
+
+  final := world.xyz / world.w
+  fmt.printf("Mouse X: %f, Y: %f\n", final.x, final.y)
+
+  return final.x, final.y
 }
 
 projection := glm.mat4Ortho3d(0, screen_width, 0, screen_height, -100, 100)
@@ -196,7 +216,21 @@ main :: proc() {
 
     glfw.PollEvents()
 
-    render_screen(window, global_vao, delta_time)
+    update_follow_camera(&main_camera, main_follow_camera, player.transform.position, delta_time)
+    view := get_camera_matrix(main_camera)
+
+    mouse_x, mouse_y := get_mouse_in_view(window, view)
+
+    if mouse_x >= player.transform.position.x &&
+       mouse_x <= player.transform.position.x + player.transform.size.x &&
+       mouse_y >= player.transform.position.y &&
+       mouse_y <= player.transform.position.y + player.transform.size.y {
+      player.color = { 1, 0, 0, 1 }
+    } else {
+      player.color = { 1, 1, 1, 1 }
+    }
+
+    render_screen(window, global_vao, delta_time, view)
 
     glfw.SwapBuffers(window)
   }
@@ -215,17 +249,13 @@ key_callback :: proc "c" (window: glfw.WindowHandle, key, scancode, action, mods
   }
 }
 
-render_screen :: proc(window: glfw.WindowHandle, vao: VAO, delta_time: f32) {
+render_screen :: proc(window: glfw.WindowHandle, vao: VAO, delta_time: f32, view: glm.mat4) {
   gl.BindVertexArray(vao)
   defer gl.BindVertexArray(0)
 
   // Draw commands
   gl.ClearColor(0.1, 0.1, 0.1, 1)
   gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-
-  update_follow_camera(&main_camera, main_follow_camera, player.transform.position, delta_time)
-
-  view := get_camera_matrix(main_camera)
 
   render_rect(player, view)
 
