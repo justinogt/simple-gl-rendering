@@ -1,7 +1,7 @@
 package main
 
 import "core:time"
-// import "core:time"
+import rand "core:math/rand"
 import "core:fmt"
 import "core:os"
 import glm "core:math/linalg/glsl"
@@ -40,6 +40,7 @@ Rect :: struct {
   transform: Transform,
   pivot    : [3]f32,
   color    : [4]f32,
+  speed    : f32,
 }
 
 get_camera_matrix :: proc(camera: Camera) -> glm.mat4 {
@@ -80,7 +81,7 @@ get_mouse_in_view :: proc(window: glfw.WindowHandle, view_matrix: glm.mat4) -> (
   world := inv_proj * clip
 
   final := world.xyz / world.w
-  fmt.printf("Mouse X: %f, Y: %f\n", final.x, final.y)
+  // fmt.printf("Mouse X: %f, Y: %f\n", final.x, final.y)
 
   return final.x, final.y
 }
@@ -125,6 +126,21 @@ simple_level := [3]Rect {
     },
     color = { 0.2, 0.1, 0.1, 1 },
   },
+}
+
+falling_boxes : [dynamic]Rect
+
+boxes_spawn_width := screen_width * 0.8
+padding := (screen_width - boxes_spawn_width) / 2
+generate_random_box :: proc () {
+  append(&falling_boxes, Rect {
+    transform = {
+      position = { padding + (rand.float32() * boxes_spawn_width), screen_height, 0 },
+      size     = { 20 + rand.float32() * 100, 20 + rand.float32() * 100, 0 },
+    },
+    color = { rand.float32(), rand.float32(), rand.float32(), 1 },
+    speed = 50 + rand.float32() * 100,
+  })
 }
 
 main :: proc() {
@@ -205,21 +221,42 @@ main :: proc() {
 
   gl.Enable(gl.DEPTH_TEST)
 
-  // start_tick := time.tick_now()
   last_tick := time.tick_now()
+
+  spawn_frequency :f32 = 0.5
+  can_spawn :f32 = 0.0
 
   for glfw.WindowShouldClose(window) == false {
     current_tick := time.tick_now()
     delta_tick := time.tick_diff(last_tick, current_tick)
     delta_time := f32(time.duration_seconds(delta_tick))
     last_tick = current_tick
-
+  
     glfw.PollEvents()
-
+    
     update_follow_camera(&main_camera, main_follow_camera, player.transform.position, delta_time)
     view := get_camera_matrix(main_camera)
-
     mouse_x, mouse_y := get_mouse_in_view(window, view)
+    
+    can_spawn += delta_time
+    if can_spawn >= spawn_frequency {
+      generate_random_box()
+      can_spawn = 0
+
+      fmt.println("Falling Boxes", len(falling_boxes))
+    }
+
+    for &box, index in falling_boxes {
+      box.transform.position.y -= box.speed * delta_time
+
+      if mouse_x >= box.transform.position.x &&
+        mouse_x <= box.transform.position.x + box.transform.size.x &&
+        mouse_y >= box.transform.position.y &&
+        mouse_y <= box.transform.position.y + box.transform.size.y {
+        box.color = { 1, 0, 0, 1 }
+        unordered_remove(&falling_boxes, index)
+      }
+    }
 
     if mouse_x >= player.transform.position.x &&
        mouse_x <= player.transform.position.x + player.transform.size.x &&
@@ -260,6 +297,10 @@ render_screen :: proc(window: glfw.WindowHandle, vao: VAO, delta_time: f32, view
   render_rect(player, view)
 
   for rect in simple_level {
+    render_rect(rect, view)
+  }
+
+  for rect in falling_boxes {
     render_rect(rect, view)
   }
 }
