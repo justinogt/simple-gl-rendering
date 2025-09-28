@@ -49,13 +49,13 @@ main :: proc() {
 
   vertices : [12]f32 = {
     // Coordinates
-    -1, 1,
-    0, 0,
-    -1, 0,
-
-    -1, 1,
     0, 1,
     0, 0,
+    1, 0,
+
+    1, 0,
+    1, 1,
+    0, 1,
   }
 
   gl.GenVertexArrays(1, &global_vao)
@@ -129,14 +129,18 @@ key_callback :: proc "c" (window: glfw.WindowHandle, key, scancode, action, mods
   }
 }
 
-camera_x := screen_width / 2
-camera_y := screen_height / 2
+camera_x :f32 = 0
+camera_y :f32 = 0
 
-target_camera_x := screen_width / 2
-target_camera_y := screen_height / 2
+target_camera_x :f32 = 0
+target_camera_y :f32 = 0
 
 player_x :f32 = 0
 player_y :f32 = 0
+
+world_origin_x :f32 = 0
+world_origin_y :f32 = screen_height
+
 render_screen :: proc(window: glfw.WindowHandle, vao: VAO, delta_time: f32) {
   gl.BindVertexArray(vao)
   defer gl.BindVertexArray(0)
@@ -145,35 +149,64 @@ render_screen :: proc(window: glfw.WindowHandle, vao: VAO, delta_time: f32) {
   gl.ClearColor(0.1, 0.1, 0.1, 1)
   gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-  target_camera_x = player_x - (screen_width / 2)
-  target_camera_y = player_y - (screen_height / 2)
+  // target_camera_x = player_x - (0)
+  // target_camera_y = player_y - (0)
 
-  camera_x += (target_camera_x - camera_x) * delta_time
-  camera_y += (target_camera_y - camera_y) * delta_time
+  // camera_x += (target_camera_x - camera_x) * delta_time
+  // camera_y += (target_camera_y - camera_y) * delta_time
   
-  projection := glm.mat4Ortho3d(0, screen_width, 0, screen_height, -1, 1)
-  view := glm.mat4Translate({-camera_x, -camera_y, 0})
+  projection := glm.mat4Ortho3d(0, screen_width, 0, screen_height, -100, 100)
+  view := glm.mat4Translate({ 0, 0, 0})
 
-  model := glm.mat4Translate({ player_x, player_y, 0 }) * glm.mat4Scale({ 100, screen_height / 2, 1 })
+  pivot := [3]f32{0, 0, 0}
+  size := [3]f32{50, 100, 0}
+  pos := [3]f32{ screen_width / 2, 55, 1}
+  model := glm.mat4Translate(pos + size * pivot) * glm.mat4Scale(size)
   u_transform := projection * view * model
   gl.UniformMatrix4fv(gl.GetUniformLocation(global_shader, "projection"), 1, false, &u_transform[0,0])
   gl.Uniform4f(gl.GetUniformLocation(global_shader, "color"), 1, 1, 1, 1)
-  gl.Uniform1f(gl.GetUniformLocation(global_shader, "zIndex"), 1)
   gl.DrawArrays(
     gl.TRIANGLES, // Draw triangles
     0,  // Begin drawing at index 0
     6,   // Use 3 indices
   )
 
-  model = glm.mat4Translate({ screen_width / 2, -screen_height / 2, 0 }) * glm.mat4Scale({ screen_width, 50, 1 })
+  pivot = [3]f32{0, 0, 0}
+  size = [3]f32{screen_width, 50, 0}
+  pos = [3]f32{ 0, 0, 0}
+  model = glm.mat4Translate(pos + size * pivot) * glm.mat4Scale(size)
   u_transform = projection * view * model
   gl.UniformMatrix4fv(gl.GetUniformLocation(global_shader, "projection"), 1, false, &u_transform[0,0])
-  gl.Uniform4f(gl.GetUniformLocation(global_shader, "color"), 0, 0, 0, 1)
-  gl.Uniform1f(gl.GetUniformLocation(global_shader, "zIndex"), 1)
+  gl.Uniform4f(gl.GetUniformLocation(global_shader, "color"), 0.2, 0.1, 0.1, 1)
   gl.DrawArrays(
     gl.TRIANGLES, // Draw triangles
     0,  // Begin drawing at index 0
     6,   // Use 3 indices
   )
 
+  pivot = [3]f32{0, 0, 0}
+  size = [3]f32{50, screen_height, 0}
+  pos = [3]f32{ 10, 0, 0}
+  model = glm.mat4Translate(pos + size * pivot) * glm.mat4Scale(size)
+  u_transform = projection * view * model
+  gl.UniformMatrix4fv(gl.GetUniformLocation(global_shader, "projection"), 1, false, &u_transform[0,0])
+  gl.Uniform4f(gl.GetUniformLocation(global_shader, "color"), 0.2, 0.1, 0.1, 1)
+  gl.DrawArrays(
+    gl.TRIANGLES, // Draw triangles
+    0,  // Begin drawing at index 0
+    6,   // Use 3 indices
+  )
+
+  pivot = [3]f32{0, 0, 0}
+  size = [3]f32{50, screen_height, 0}
+  pos = [3]f32{ screen_width - 50 -10, 0, 0}
+  model = glm.mat4Translate(pos + size * pivot) * glm.mat4Scale(size)
+  u_transform = projection * view * model
+  gl.UniformMatrix4fv(gl.GetUniformLocation(global_shader, "projection"), 1, false, &u_transform[0,0])
+  gl.Uniform4f(gl.GetUniformLocation(global_shader, "color"), 0.2, 0.1, 0.1, 1)
+  gl.DrawArrays(
+    gl.TRIANGLES, // Draw triangles
+    0,  // Begin drawing at index 0
+    6,   // Use 3 indices
+  )
 }
