@@ -167,6 +167,8 @@ main :: proc() {
 
   glfw.SetKeyCallback(window, key_callback)
 
+  glfw.SetFramebufferSizeCallback(window, size_callback)
+
   gl.load_up_to(GL_MAJOR_VERSION, GL_MINOR_VERSION, glfw.gl_set_proc_address)
 
   vertices : [12]f32 = {
@@ -243,7 +245,7 @@ main :: proc() {
       generate_random_box()
       can_spawn = 0
 
-      fmt.println("Falling Boxes", len(falling_boxes))
+      // fmt.println("Falling Boxes", len(falling_boxes))
     }
 
     for &box, index in falling_boxes {
@@ -303,4 +305,13 @@ render_screen :: proc(window: glfw.WindowHandle, vao: VAO, delta_time: f32, view
   for rect in falling_boxes {
     render_rect(rect, view)
   }
+}
+
+size_callback :: proc "c" (window: glfw.WindowHandle, width, height: i32) {
+  gl.Viewport(0, 0, width, height)
+
+  screen_width = f32(width)
+  screen_height = f32(height)
+
+  projection = glm.mat4Ortho3d(0, screen_width, 0, screen_height, -100, 100)
 }
