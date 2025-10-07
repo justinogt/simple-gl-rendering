@@ -43,6 +43,20 @@ Rect :: struct {
   speed    : f32,
 }
 
+FONT :: `c:\USERS\JORGE\APPDATA\LOCAL\MICROSOFT\WINDOWS\FONTS\JETBRAINSMONO-REGULAR.TTF`
+FONT_SCALE :: 125
+
+CharacterTexture :: struct {
+  texId: u32,
+  width: i32,
+  height: i32,
+  bbox_x: f32,
+  bbox_y: f32,
+  advance: f32,
+  bitmap: [^] byte,
+}
+rune_to_glyph_texture : map[rune]CharacterTexture
+
 get_camera_matrix :: proc(camera: Camera) -> glm.mat4 {
   return glm.mat4Translate(-camera.position) * glm.mat4Scale({ camera.zoom, camera.zoom, 1 })
 }
